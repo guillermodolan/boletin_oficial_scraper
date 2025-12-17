@@ -1,5 +1,6 @@
 import time
 import os
+from datetime import datetime
 from selenium import webdriver
 from selenium.common import NoSuchElementException
 from selenium.webdriver.chrome.service import Service
@@ -33,22 +34,32 @@ if __name__ == "__main__":
     # Usamos un 'set' porque buscar en un set es instantáneo, mucho más rápido que una lista
     urls_procesadas_historico = set()
 
-    print(f"--- Iniciando scraper Boletín Oficial ---")
-    url_primera_seccion = "https://www.boletinoficial.gob.ar/"
+    # Obtenemos el día actual numérico
+    dia_actual_real = datetime.now().day
+
+    print(f"--- Iniciando scraper (Hoy es día {dia_actual_real}) ---")
+    url_primera_seccion = "https://www.boletinoficial.gob.ar/seccion/primera"
     driver.get(url_primera_seccion)
-    try:
-        # Creamos este botón para ingresar a la sección "Legislación y Avisos Oficiales"
-        btn_ingresar= WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((
-                By.CSS_SELECTOR, "#layoutContent .bg-first-section a")))
+    # try:
+    #     # Creamos este botón para ingresar a la sección "Legislación y Avisos Oficiales"
+    #     btn_ingresar= WebDriverWait(driver, 10).until(
+    #         EC.element_to_be_clickable((
+    #             By.CSS_SELECTOR, "#layoutContent .bg-first-section a")))
+    #
+    #     # Mediante el click en automático, logramos ingresar
+    #     btn_ingresar.click()
+    # except:
+    #     print("      [!] No se pudo descargar el boletin.")
 
-        # Mediante el click en automático, logramos ingresar
-        btn_ingresar.click()
-    except:
-        print("      [!] No se pudo descargar el boletin.")
+    # En el siguiente bucle for recorremos el mes en curso. Está configurado para realizar 31 ciclos. Si por
+    # ejemplo estamos en el mes de Junio (que tiene 30 días), mediante un break cortamos el ciclo.
+    for i in range(1, 32):
 
-    # Recorremos los días del 1 al 6
-    for i in range(5, 7):
+        # --- FRENO DE MANO: Si el día del bucle es mayor a hoy, CORTAMOS ---
+        if i > dia_actual_real:
+            print(f"🛑 Deteniendo: El día {i} aún no ha ocurrido (Hoy es {dia_actual_real}).")
+            break
+
         dia_objetivo = str(i)  # Convertimos el número a texto: "1", "2", etc.
 
         # ------------------- INCORPORACIÓN 1 -----------------------------------
@@ -59,9 +70,19 @@ if __name__ == "__main__":
         except NoSuchElementException:
             tabla_vieja = None
 
-
-
         xpath_dia = f"//div[contains(@class, 'datepicker-days')]//td[text()='{dia_objetivo}' and not(contains(@class, 'old'))]"
+
+        # Verificamos si el día existe ANTES de intentar esperarlo o clickearlo
+        # Usamos find_elements (PLURAL) porque devuelve una lista vacía si no encuentra nada,
+        # en lugar de dar error.
+        coincidencias = driver.find_elements(By.XPATH, xpath_dia)
+
+        if len(coincidencias) == 0:
+            print(f"ℹ️ El día {dia_objetivo} no existe en este mes. Fin del proceso mensual.")
+
+            # El break CORTA EL FOR que da 31 ciclos. Esto puede ocurrir si nos encontramos en Junio (como se menciona más
+            # arriba).
+            break
         try:
             # Esperamos a que el día sea clickeable
             elemento_dia = WebDriverWait(driver, 10).until(
@@ -85,10 +106,13 @@ if __name__ == "__main__":
 
             # PASO 1. Cosechamos los links obtenidos
             links_del_dia = []
-            items = driver.find_elements(By.XPATH, "/html/body/div[4]/div/div[2]/div/div[2]/div/div[3]/div/div")
+            # items = driver.find_elements(By.XPATH, "/html/body/div[4]/div/div[2]/div/div[2]/div/div[3]/div/div")
+            # items = driver.find_elements(By.XPATH, "/html/body/div[4]/div/div[2]/div/div[2]/div/div[3]/div")
+            items = driver.find_elements(By.CSS_SELECTOR, "#avisosSeccionDiv > div")
+            print(items)
 
             # Creamos una lista con las palabras clave que necesitamos para buscar los artículos
-            palabras_clave = ["MINISTERIO DE SEGURIDAD NACIONAL", "INSTITUTO NACIONAL DE SEMILLAS"]
+            palabras_clave = ["MINISTERIO DE JUSTICIA"]
 
             for item in items:
                 try:
