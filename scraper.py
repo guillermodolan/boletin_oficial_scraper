@@ -29,6 +29,10 @@ prefs = {
 chrome_options.add_experimental_option("prefs", prefs)
 
 if __name__ == "__main__":
+
+    # Iniciamos un cronómetro con el objetivo de ver cuánto tiempo de ejecución se destina.
+    inicio = time.time()
+
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
     # Usamos un 'set' porque buscar en un set es instantáneo, mucho más rápido que una lista
@@ -53,7 +57,7 @@ if __name__ == "__main__":
 
     # En el siguiente bucle for recorremos el mes en curso. Está configurado para realizar 31 ciclos. Si por
     # ejemplo estamos en el mes de Junio (que tiene 30 días), mediante un break cortamos el ciclo.
-    for i in range(1, 32):
+    for i in range(1, 6):
 
         # --- FRENO DE MANO: Si el día del bucle es mayor a hoy, CORTAMOS ---
         if i > dia_actual_real:
@@ -109,7 +113,6 @@ if __name__ == "__main__":
             # items = driver.find_elements(By.XPATH, "/html/body/div[4]/div/div[2]/div/div[2]/div/div[3]/div/div")
             # items = driver.find_elements(By.XPATH, "/html/body/div[4]/div/div[2]/div/div[2]/div/div[3]/div")
             items = driver.find_elements(By.CSS_SELECTOR, "#avisosSeccionDiv > div")
-            print(items)
 
             # Creamos una lista con las palabras clave que necesitamos para buscar los artículos
             palabras_clave = ["MINISTERIO DE JUSTICIA"]
@@ -174,4 +177,7 @@ if __name__ == "__main__":
         print(f"--- Procesando día: {dia_objetivo} ---")
 
     driver.quit()
-    print("\n--- Proceso Terminado ---")
+    # Paramos el cronómetro inicializado en la variable "inicio".
+    fin = time.time()
+    tiempo_total = (fin - inicio) / 60
+    print(f"\n Proceso Terminado. El tiempo empleado fue: {tiempo_total:.2f} minutos.")
