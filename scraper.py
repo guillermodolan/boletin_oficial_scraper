@@ -1,5 +1,6 @@
 import time
 import os
+import logging
 from datetime import datetime
 from selenium import webdriver
 from selenium.common import NoSuchElementException
@@ -29,9 +30,31 @@ prefs = {
 chrome_options.add_experimental_option("prefs", prefs)
 
 if __name__ == "__main__":
-
     # Iniciamos un cronómetro con el objetivo de ver cuánto tiempo de ejecución se destina.
     inicio = time.time()
+
+    # Configuramos un log con el objetivo de tener una trazabilidad si ocurren errores.
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s | %(levelname)s | %(message)s',
+        datefmt='%H:%M:%S',  # Hora limpia sin fecha (ya la tienes en el nombre del archivo si quieres)
+        handlers=[
+            logging.FileHandler("actividad_scraper.log", encoding='utf-8', mode='w'),
+            # mode='w' borra el log anterior al iniciar
+            logging.StreamHandler()
+        ]
+    )
+
+    # Las siguientes 3 líneas son para evitar que se escriban mensajes del IDE en el log (Esto elimina lo de "Get LATEST
+    # chromedriver")
+    logging.getLogger('WDM').setLevel(logging.WARNING)
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+    logging.getLogger('selenium').setLevel(logging.WARNING)
+
+    # Las siguientes 3 líneas sirven para saber a qué hora se inició el scraper.
+    logging.info("=" * 50)
+    logging.info(f"🚀 Iniciando Sraper - Fecha: {datetime.now().strftime('%d/%m/%Y')}")
+    logging.info("=" * 50)
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
@@ -44,23 +67,16 @@ if __name__ == "__main__":
     print(f"--- Iniciando scraper (Hoy es día {dia_actual_real}) ---")
     url_primera_seccion = "https://www.boletinoficial.gob.ar/seccion/primera"
     driver.get(url_primera_seccion)
-    # try:
-    #     # Creamos este botón para ingresar a la sección "Legislación y Avisos Oficiales"
-    #     btn_ingresar= WebDriverWait(driver, 10).until(
-    #         EC.element_to_be_clickable((
-    #             By.CSS_SELECTOR, "#layoutContent .bg-first-section a")))
-    #
-    #     # Mediante el click en automático, logramos ingresar
-    #     btn_ingresar.click()
-    # except:
-    #     print("      [!] No se pudo descargar el boletin.")
 
     # En el siguiente bucle for recorremos el mes en curso. Está configurado para realizar 31 ciclos. Si por
     # ejemplo estamos en el mes de Junio (que tiene 30 días), mediante un break cortamos el ciclo.
-    for i in range(1, 6):
-
-        # --- FRENO DE MANO: Si el día del bucle es mayor a hoy, CORTAMOS ---
+    for i in range(1, 3):
+        # Mediante la siguiente condición estamos validando que no se intente buscar en una fecha posterior a la
+        # actual.
         if i > dia_actual_real:
+            # Registramos en el log si se intenta buscar en un día posterior a la fecha.
+            # Ejemplo: si hoy es 16/12 y se intenta buscar en 17/12, automáticamente se detiene la búsqueda.
+            logging.info(f"🛑 DETENIENDO: El día {i} es fecha futura. Fin del ciclo.")
             print(f"🛑 Deteniendo: El día {i} aún no ha ocurrido (Hoy es {dia_actual_real}).")
             break
 
@@ -110,8 +126,6 @@ if __name__ == "__main__":
 
             # PASO 1. Cosechamos los links obtenidos
             links_del_dia = []
-            # items = driver.find_elements(By.XPATH, "/html/body/div[4]/div/div[2]/div/div[2]/div/div[3]/div/div")
-            # items = driver.find_elements(By.XPATH, "/html/body/div[4]/div/div[2]/div/div[2]/div/div[3]/div")
             items = driver.find_elements(By.CSS_SELECTOR, "#avisosSeccionDiv > div")
 
             # Creamos una lista con las palabras clave que necesitamos para buscar los artículos
@@ -131,8 +145,12 @@ if __name__ == "__main__":
 
                             # Marcamos el link como ya visto
                             urls_procesadas_historico.add(url_link)
+
+                            # Guardamos y generamos en el log el artículo encontrado
+                            logging.info(f"📄 Encontrado: '{solo_titulo}' (Se agregará a cola de descarga)")
                         else:
-                            print(f"   (Saltando duplicado: {url_link[-10:]})")
+                            # Si encontramos un duplicado, lo registramos en el log
+                            logging.info(f"⚠️ DUPLICADO OMITIDO: '{solo_titulo}'")
                 except:
                     pass
 
@@ -156,6 +174,9 @@ if __name__ == "__main__":
             for url_doc in links_del_dia:
                 driver.get(url_doc)
                 try:
+                    # Registramos en el log el inicio de descarga de un artículo.
+                    logging.info(f"⬇️  INICIANDO DESCARGA: {url_doc}")
+
                     # Guardamos el botón de descarga de un artículo que sea relevante.
                     btn = WebDriverWait(driver, 5).until(EC.element_to_be_clickable(
                         (By.CSS_SELECTOR, "#subLayouyContentDiv .col-download button")))
@@ -166,8 +187,12 @@ if __name__ == "__main__":
 
                     print(f"      Descarga iniciada (JS Click): {url_doc}")
                     time.sleep(4)
+
+                    # Registramos la descarga exitosa en el log.
+                    logging.info(f"✅ DESCARGA EXITOSA. (Guardado en carpeta Dia_{dia_objetivo})")
                 except Exception as e:
-                    print(f'El error es: {e}')
+                    # Si ocurrió una excepción, la registramos en el log.
+                    logging.error(f"❌ ERROR DESCARGANDO {url_doc}: {e}")
             driver.get(url_primera_seccion)
             time.sleep(2)
 
